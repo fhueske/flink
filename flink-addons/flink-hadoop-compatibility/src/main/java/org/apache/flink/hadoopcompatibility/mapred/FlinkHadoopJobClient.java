@@ -32,6 +32,7 @@ import org.apache.flink.api.java.typeutils.TypeExtractor;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopDummyReporter;
+
 import org.apache.flink.types.TypeInformation;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -48,6 +49,7 @@ import org.apache.hadoop.mapred.JobID;
 import org.apache.hadoop.mapred.JobQueueInfo;
 import org.apache.hadoop.mapred.JobStatus;
 import org.apache.hadoop.mapred.Reporter;
+
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.TaskAttemptID;
 import org.apache.hadoop.mapred.TaskCompletionEvent;
@@ -86,6 +88,7 @@ public final class FlinkHadoopJobClient extends JobClient {
 
 	@Override
 	public void init(final JobConf conf) throws IOException {
+
 		this.hadoopConf = conf;
 	}
 

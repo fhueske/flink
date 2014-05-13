@@ -24,6 +24,7 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 
 import org.apache.flink.api.java.functions.RichFlatMapFunction;
+
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.api.java.typeutils.TupleTypeInfo;
