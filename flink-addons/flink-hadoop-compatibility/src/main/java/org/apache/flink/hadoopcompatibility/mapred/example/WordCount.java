@@ -35,8 +35,6 @@ import org.apache.flink.hadoopcompatibility.mapred.HadoopInputFormat;
 import org.apache.flink.hadoopcompatibility.mapred.HadoopOutputFormat;
 import org.apache.flink.util.Collector;
 
-
-
 /**
  * Implements a word count which takes the input file and counts the number of
  * occurrences of each word in the file and writes the result back to disk.
