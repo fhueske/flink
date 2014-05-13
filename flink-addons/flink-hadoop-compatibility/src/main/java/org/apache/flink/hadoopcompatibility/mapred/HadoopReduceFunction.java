@@ -76,9 +76,10 @@ public final class HadoopReduceFunction<KEYIN extends WritableComparable<?>, VAL
 		this.iterator = new ReducerTransformingIterator();
 	}
 
+
 	/**
-	 * A wrapping iterator for an iterator of key-value pairs that can be used as an iterator of values.
-	 */
+    * The wrapper for a Hadoop Reducer (mapred API).
+    */
 	private final class ReducerTransformingIterator extends TupleUnwrappingIterator<VALUEIN,KEYIN>
 			implements java.io.Serializable {
 
@@ -93,6 +94,7 @@ public final class HadoopReduceFunction<KEYIN extends WritableComparable<?>, VAL
 		 */
 		@Override()
 		public void set(final Iterator<Tuple2<KEYIN,VALUEIN>> iterator) {
+
 			this.iterator = iterator;
 			if(this.hasNext()) {
 				this.first = iterator.next();
@@ -195,6 +197,7 @@ public final class HadoopReduceFunction<KEYIN extends WritableComparable<?>, VAL
 		final Class<KEYIN> mapKeyOutClass = (Class<KEYIN>) jobConf.getMapOutputKeyClass();
 		final Class<VALUEIN> mapValueOutClass = (Class<VALUEIN>) jobConf.getMapOutputValueClass();
 
+
 		final Class combinerClass = jobConf.getCombinerClass();
 		if (combinerClass != null) {
 			combiner = InstantiationUtil.instantiate(jobConf.getCombinerClass());
@@ -203,7 +206,6 @@ public final class HadoopReduceFunction<KEYIN extends WritableComparable<?>, VAL
 		reducer.configure(jobConf);
 		reducer = InstantiationUtil.instantiate(jobConf.getReducerClass());
 		reducer.configure(jobConf);
-
 		final Class<? extends OutputCollector> combineCollectorClass = jobConf.getClass("flink.map.collector",
 				HadoopOutputCollector.class,
 				OutputCollector.class);
@@ -262,5 +264,4 @@ public final class HadoopReduceFunction<KEYIN extends WritableComparable<?>, VAL
 			return partitioner.getPartition(value.f0, value.f1, Integer.MAX_VALUE);
 		}
 	}
-	
 }
