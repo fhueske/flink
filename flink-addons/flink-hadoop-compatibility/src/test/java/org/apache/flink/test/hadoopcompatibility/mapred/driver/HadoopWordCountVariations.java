@@ -229,10 +229,44 @@ public class HadoopWordCountVariations {
 			
 		}
 
+		public static class ReverseOutReducer extends MapReduceBase implements Reducer<Text, LongWritable, LongWritable, Text> {
+
+			@Override
+			public void reduce(final Text text, final Iterator<LongWritable> iterator,
+			                   final OutputCollector<LongWritable, Text> collector,
+			                   final Reporter reporter) throws IOException {
+				long sum = 0;
+				while (iterator.hasNext()) {
+					sum += iterator.next().get();
+				}
+				collector.collect(new LongWritable(sum), text);
+			}
+		}
+
+		public static class FirstLetterTextComparator implements RawComparator<Text> {
+
+			@Override
+			public int compare(Text o1, Text o2) {
+				if (o1.getLength() == 0) {
+					return -1;
+				} else if (o2.getLength() == 0) {
+					return 1;
+				} else {
+					return o1.charAt(0) - o2.charAt(0);
+				}
+			}
+
+			@Override
+			public int compare(byte[] arg0, int arg1, int arg2, byte[] arg3, int arg4, int arg5) {
+				throw new NotImplementedException();
+			}
+
+		}
+
 	}
 
 	public static class MultipleInputsWordCount {
-		public static void main(String[] args) throws Exception{
+		public static void main(String[] args) throws Exception {
 			final String inputPath1 = args[0];
 			final String inputPath2 = args[1];
 			final String outputPath = args[2];
@@ -256,91 +290,66 @@ public class HadoopWordCountVariations {
 
 			FlinkHadoopJobClient.runJob(conf);
 		}
-	}
 
-	public static class WordCountMapperOnly {
-		public static void main(String[] args) throws Exception {
-			final String inputPath = args[0];
-			final String outputPath = args[1];
+		public static class WordCountMapperOnly {
+			public static void main(String[] args) throws Exception {
+				final String inputPath = args[0];
+				final String outputPath = args[1];
+				final JobConf conf = new JobConf();
 
-			final JobConf conf = new JobConf();
+				conf.setInputFormat(org.apache.hadoop.mapred.TextInputFormat.class);
+				org.apache.hadoop.mapred.TextInputFormat.addInputPath(conf, new Path(inputPath));
 
-			conf.setInputFormat(org.apache.hadoop.mapred.TextInputFormat.class);
-			org.apache.hadoop.mapred.TextInputFormat.addInputPath(conf, new Path(inputPath));
+				conf.setMapperClass(TestTokenizeMap.class);
 
-			conf.setOutputFormat(TextOutputFormat.class);
-			TextOutputFormat.setOutputPath(conf, new Path(outputPath));
+				conf.setOutputValueGroupingComparator(FirstLetterTextComparator.class);
+				conf.setReducerClass(LongSumReducer.class);
 
-			conf.setMapperClass(TestTokenizeMap.class);
-			conf.setNumReduceTasks(0);
+				conf.set("mapred.textoutputformat.separator", " ");
+				conf.setOutputKeyClass(Text.class);
+				conf.setOutputValueClass(LongWritable.class);
 
-			conf.set("mapred.textoutputformat.separator", " ");
-			conf.setOutputKeyClass(Text.class);
-			conf.setOutputValueClass(LongWritable.class);
+				conf.setOutputFormat(TextOutputFormat.class);
+				conf.set("mapred.textoutputformat.separator", " ");
+				TextOutputFormat.setOutputPath(conf, new Path(outputPath));
 
-			FlinkHadoopJobClient.runJob(conf);
-		}
-	}
-	
-	public static class WordCountCustomGrouper {
-
-		public static void main(String[] args) throws Exception {
-			final String inputPath = args[0];
-			final String outputPath = args[1];
-
-			final JobConf conf = new JobConf();
-
-			conf.setInputFormat(org.apache.hadoop.mapred.TextInputFormat.class);
-			org.apache.hadoop.mapred.TextInputFormat.addInputPath(conf, new Path(inputPath));
-
-			conf.setMapperClass(TestTokenizeMap.class);
-			
-			conf.setOutputValueGroupingComparator(FirstLetterTextComparator.class);
-			conf.setReducerClass(LongSumReducer.class);
-
-			conf.setOutputKeyClass(Text.class);
-			conf.setOutputValueClass(LongWritable.class);
-
-			conf.setOutputFormat(TextOutputFormat.class);
-			conf.set("mapred.textoutputformat.separator", " ");
-			TextOutputFormat.setOutputPath(conf, new Path(outputPath));
-			
-			FlinkHadoopJobClient.runJob(conf);
-		}
-	}
-	
-	public static class ReverseOutReducer extends MapReduceBase implements Reducer<Text, LongWritable, LongWritable, Text> {
-
-		@Override
-		public void reduce(final Text text, final Iterator<LongWritable> iterator,
-		                   final OutputCollector<LongWritable, Text> collector,
-		                   final Reporter reporter) throws IOException {
-			long sum = 0;
-			while (iterator.hasNext()) {
-				sum += iterator.next().get();
-			}
-			collector.collect(new LongWritable(sum), text);
-		}
-	}
-	
-	public static class FirstLetterTextComparator implements RawComparator<Text> {
-
-		@Override
-		public int compare(Text o1, Text o2) {
-			if (o1.getLength() == 0) {
-				return -1;
-			} else if (o2.getLength() == 0) {
-				return 1;
-			} else {
-				return o1.charAt(0) - o2.charAt(0);
+				FlinkHadoopJobClient.runJob(conf);
 			}
 		}
 
-		@Override
-		public int compare(byte[] arg0, int arg1, int arg2, byte[] arg3, int arg4, int arg5) {
-			throw new NotImplementedException();
+		public static class ReverseOutReducer extends MapReduceBase implements Reducer<Text, LongWritable, LongWritable, Text> {
+
+			@Override
+			public void reduce(final Text text, final Iterator<LongWritable> iterator,
+			                   final OutputCollector<LongWritable, Text> collector,
+			                   final Reporter reporter) throws IOException {
+				long sum = 0;
+				while (iterator.hasNext()) {
+					sum += iterator.next().get();
+				}
+				collector.collect(new LongWritable(sum), text);
+			}
 		}
-		
+
+		public static class FirstLetterTextComparator implements RawComparator<Text> {
+
+			@Override
+			public int compare(Text o1, Text o2) {
+				if (o1.getLength() == 0) {
+					return -1;
+				} else if (o2.getLength() == 0) {
+					return 1;
+				} else {
+					return o1.charAt(0) - o2.charAt(0);
+				}
+			}
+
+			@Override
+			public int compare(byte[] arg0, int arg1, int arg2, byte[] arg3, int arg4, int arg5) {
+				throw new NotImplementedException();
+			}
+
+		}
 	}
-	
+
 }

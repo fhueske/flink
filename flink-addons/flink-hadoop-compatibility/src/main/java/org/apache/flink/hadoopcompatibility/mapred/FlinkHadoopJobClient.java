@@ -134,7 +134,7 @@ public final class FlinkHadoopJobClient extends JobClient {
 		} else {
 			result.output(outputFormat).setParallelism(reduceParallelism);
 		}
-		
+
 		return new DummyFlinkRunningJob(hadoopJobConf.getJobName());
 	}
 
