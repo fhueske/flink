@@ -28,8 +28,9 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.api.java.typeutils.TupleTypeInfo;
 import org.apache.flink.api.java.typeutils.WritableTypeInfo;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.hadoopcompatibility.mapred.utils.HadoopConfiguration;
-import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopDummyReporter;
+import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopReporter;
 import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopOutputCollector;
 import org.apache.flink.types.TypeInformation;
 import org.apache.flink.util.Collector;
@@ -38,7 +39,6 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
 
 /**
@@ -51,13 +51,13 @@ public final class HadoopMapFunction<KEYIN extends WritableComparable, VALUEIN e
 
 	private static final long serialVersionUID = 1L;
 
-	private transient Mapper<KEYIN,VALUEIN,KEYOUT,VALUEOUT> mapper;
-	private transient HadoopOutputCollector<KEYOUT,VALUEOUT> outputCollector;
+	private JobConf jobConf;
+
 	private transient Reporter reporter;
+	private transient Mapper<KEYIN, VALUEIN, KEYOUT, VALUEOUT> mapper;
+	private transient HadoopOutputCollector<KEYOUT, VALUEOUT> outputCollector;
 	private transient Class<KEYOUT> keyoutClass;
 	private transient Class<VALUEOUT> valueoutClass;
-
-	private JobConf jobConf;
 
 	@SuppressWarnings("unchecked")
 	public HadoopMapFunction(final JobConf jobConf) {
@@ -66,38 +66,48 @@ public final class HadoopMapFunction<KEYIN extends WritableComparable, VALUEIN e
 		this.valueoutClass = (Class<VALUEOUT>) jobConf.getMapOutputValueClass();
 	}
 
+	@Override
+	public void open(Configuration parameters) throws Exception {
+		super.open(parameters);
+		this.reporter = new HadoopReporter(getRuntimeContext());
+		outputCollector = new HadoopOutputCollector<KEYOUT, VALUEOUT>(this.keyoutClass, this.valueoutClass);
+	}
+
+
 	/**
 	 * Wrap a hadoop map() function call and use a Flink collector to collect the result values.
-	 * @param value The input value.
-	 * @param out The collector for emitting result values.
 	 *
+	 * @param value The input value.
+	 * @param out   The collector for emitting result values.
 	 * @throws Exception
 	 */
 	@Override
-	public void flatMap(final Tuple2<KEYIN,VALUEIN> value, final Collector<Tuple2<KEYOUT,VALUEOUT>> out)
+	public void flatMap(final Tuple2<KEYIN, VALUEIN> value, final Collector<Tuple2<KEYOUT, VALUEOUT>> out)
 			throws Exception {
 		outputCollector.set(out);
 		mapper.map(value.f0, value.f1, outputCollector, reporter);
 	}
 
 	@Override
-	public TypeInformation<Tuple2<KEYOUT,VALUEOUT>> getProducedType() {
+	public TypeInformation<Tuple2<KEYOUT, VALUEOUT>> getProducedType() {
 		final WritableTypeInfo<KEYOUT> keyTypeInfo = new WritableTypeInfo<KEYOUT>(keyoutClass);
 		final WritableTypeInfo<VALUEOUT> valueTypleInfo = new WritableTypeInfo<VALUEOUT>(valueoutClass);
-		return new TupleTypeInfo<Tuple2<KEYOUT,VALUEOUT>>(keyTypeInfo, valueTypleInfo);
+		return new TupleTypeInfo<Tuple2<KEYOUT, VALUEOUT>>(keyTypeInfo, valueTypleInfo);
 	}
 
 	/**
 	 * Custom serialization methods.
-	 *  @see http://docs.oracle.com/javase/7/docs/api/java/io/Serializable.html
+	 *
+	 * @see http://docs.oracle.com/javase/7/docs/api/java/io/Serializable.html
 	 */
 	private void writeObject(final ObjectOutputStream out) throws IOException {
-		HadoopConfiguration.writeHadoopJobConf(jobConf,out);
+		HadoopConfiguration.writeHadoopJobConf(jobConf, out);
 	}
 
 	@SuppressWarnings("unchecked")
 	private void readObject(final ObjectInputStream in) throws IOException, ClassNotFoundException {
 		jobConf = new JobConf();
+
 		jobConf.readFields(in);
 
 		keyoutClass = (Class<KEYOUT>) jobConf.getMapOutputKeyClass();
@@ -105,14 +115,5 @@ public final class HadoopMapFunction<KEYIN extends WritableComparable, VALUEIN e
 
 		mapper = InstantiationUtil.instantiate(jobConf.getMapperClass());
 		mapper.configure(jobConf);
-
-		final Class<? extends OutputCollector> collectorClass = jobConf.getClass("flink.map.collector",
-				HadoopOutputCollector.class,
-				OutputCollector.class);
-		outputCollector = (HadoopOutputCollector) InstantiationUtil.instantiate(collectorClass);
-		outputCollector.setExpectedKeyValueClasses(keyoutClass, valueoutClass);
-
-		reporter = InstantiationUtil.instantiate(jobConf.getClass("flink.reporter",
-				HadoopDummyReporter.class, Reporter.class));
 	}
 }

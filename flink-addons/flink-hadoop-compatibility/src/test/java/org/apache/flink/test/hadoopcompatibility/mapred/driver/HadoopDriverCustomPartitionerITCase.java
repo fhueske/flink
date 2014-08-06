@@ -21,9 +21,9 @@ package org.apache.flink.test.hadoopcompatibility.mapred.driver;
 import org.apache.flink.test.hadoopcompatibility.HadoopTestBase;
 import org.apache.flink.test.testdata.WordCountData;
 
-public class HadoopDriverDifferentCombinerITCase extends HadoopTestBase {
+public class HadoopDriverCustomPartitionerITCase extends HadoopTestBase {
 
-    protected String textPath;
+	protected String textPath;
 	protected String resultPath;
 
 	@Override
@@ -39,7 +39,6 @@ public class HadoopDriverDifferentCombinerITCase extends HadoopTestBase {
 
 	@Override
 	protected void testProgram() throws Exception {
-		HadoopWordCountVariations.WordCountDifferentCombiner.main(new String[]{textPath, resultPath});
+		HadoopWordCountVariations.WordCountCustomPartitioner.main(new String[]{textPath, resultPath});
 	}
 }
-

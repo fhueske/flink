@@ -28,7 +28,7 @@ import org.apache.flink.api.common.io.statistics.BaseStatistics;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.hadoopcompatibility.mapred.record.datatypes.HadoopTypeConverter;
 import org.apache.flink.hadoopcompatibility.mapred.utils.HadoopUtils;
-import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopDummyReporter;
+import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopReporter;
 import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopInputSplit;
 import org.apache.flink.types.Record;
 import org.apache.hadoop.mapred.JobConf;
@@ -90,7 +90,7 @@ public class HadoopRecordInputFormat<K, V> implements InputFormat<Record, Hadoop
 
 	@Override
 	public void open(HadoopInputSplit split) throws IOException {
-		this.recordReader = this.hadoopInputFormat.getRecordReader(split.getHadoopInputSplit(), jobConf, new HadoopDummyReporter());
+		this.recordReader = this.hadoopInputFormat.getRecordReader(split.getHadoopInputSplit(), jobConf, new HadoopReporter());
 		key = this.recordReader.createKey();
 		value = this.recordReader.createValue();
 		this.fetched = false;

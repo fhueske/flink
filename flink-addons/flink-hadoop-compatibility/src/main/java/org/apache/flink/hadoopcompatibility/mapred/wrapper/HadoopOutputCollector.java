@@ -21,7 +21,6 @@ package org.apache.flink.hadoopcompatibility.mapred.wrapper;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.util.Collector;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.mapred.OutputCollector;
 
 import java.io.IOException;
@@ -30,14 +29,20 @@ import java.io.IOException;
  * A Hadoop OutputCollector that basically wraps a Flink OutputCollector.
  * This implies that on each call of collect() the data is actually collected.
  */
-public final class HadoopOutputCollector<KEYOUT extends WritableComparable, VALUEOUT extends Writable>
+public final class HadoopOutputCollector<KEYOUT extends Writable, VALUEOUT extends Writable>
 		implements OutputCollector<KEYOUT,VALUEOUT> {
 
 	private Collector<Tuple2<KEYOUT,VALUEOUT>> collector;
-	private Class<KEYOUT> keyoutClass;
-	private Class<VALUEOUT> valueoutClass;
+	private Class<KEYOUT> keyOutClass;
+	private Class<VALUEOUT> valueOutClass;
 
+	@SuppressWarnings("unused")
 	public HadoopOutputCollector() {super();}  //Useful when instantiating by reflection.
+
+	public HadoopOutputCollector(Class<KEYOUT> keyOutClass, Class<VALUEOUT> valueOutClass) {
+		this.keyOutClass = keyOutClass;
+		this.valueOutClass = valueOutClass;
+	}
 
 	/**
 	 * Set the Flink Collector to wrap. A Flink Collector should be set before calling collect().
@@ -73,29 +78,30 @@ public final class HadoopOutputCollector<KEYOUT extends WritableComparable, VALU
 	 * @param keyClass the class of key that is expected for this output collector
 	 * @param valueClass the class of value that is expected for this output collector
 	 */
+	@SuppressWarnings("unused")
 	public void setExpectedKeyValueClasses(final Class<KEYOUT> keyClass, final Class<VALUEOUT> valueClass) {
-		this.keyoutClass = keyClass;
-		this.valueoutClass = valueClass;
+		this.keyOutClass = keyClass;
+		this.valueOutClass = valueClass;
 	}
 
 	/**
 	 * Checks whether a key-value pair is of the expected type (as specified by setExpectedKeyValueClasses())
 	 */
 	private void validateExpectedTypes(final KEYOUT keyout, final VALUEOUT valueout) throws IOException{
-		if (this.keyoutClass == null) {
+		if (this.keyOutClass == null) {
 			throw new IOException("Expected output key class has not been specified.");
 		}
-		else if (! this.keyoutClass.isInstance(keyout)) {
+		else if (! this.keyOutClass.isInstance(keyout)) {
 			final String kClassName = keyout.getClass().getCanonicalName();
-			throw new IOException("Type mismatch in key: expected " + this.keyoutClass + ", received " + kClassName);
+			throw new IOException("Type mismatch in key: expected " + this.keyOutClass + ", received " + kClassName);
 		}
 
-		if (this.valueoutClass == null) {
+		if (this.valueOutClass == null) {
 			throw new IOException("Expected output value class has not been specified.");
 		}
-		else if (! this.valueoutClass.isInstance(valueout)) {
+		else if (! this.valueOutClass.isInstance(valueout)) {
 			final String vClassName = valueout.getClass().getCanonicalName();
-			throw new IOException("Type mismatch in value: expected " + this.valueoutClass +
+			throw new IOException("Type mismatch in value: expected " + this.valueOutClass +
 					", received " + vClassName);
 		}
 	}
