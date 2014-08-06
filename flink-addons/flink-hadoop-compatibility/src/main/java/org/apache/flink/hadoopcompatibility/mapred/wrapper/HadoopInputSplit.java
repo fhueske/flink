@@ -63,6 +63,7 @@ public class HadoopInputSplit implements InputSplit {
 	public void write(DataOutputView out) throws IOException {
 		out.writeInt(splitNumber);
 		out.writeUTF(hadoopInputSplitTypeName);
+		jobConf.write(out);
 		hadoopInputSplit.write(out);
 	}
 
@@ -80,10 +81,13 @@ public class HadoopInputSplit implements InputSplit {
 				throw new RuntimeException("Unable to create InputSplit", e);
 			}
 		}
+		jobConf = new JobConf();
+		jobConf.readFields(in);
 		if (this.hadoopInputSplit instanceof Configurable) {
-			((Configurable) this.hadoopInputSplit).setConf(new JobConf());
+			((Configurable) this.hadoopInputSplit).setConf(this.jobConf);
 		}
 		this.hadoopInputSplit.readFields(in);
+
 	}
 
 	@Override

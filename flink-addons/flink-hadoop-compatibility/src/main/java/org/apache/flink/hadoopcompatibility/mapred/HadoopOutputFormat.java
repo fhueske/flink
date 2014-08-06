@@ -24,7 +24,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.hadoopcompatibility.mapred.utils.HadoopUtils;
 import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopDummyProgressable;
-import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopDummyReporter;
+import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopReporter;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.FileOutputCommitter;
 import org.apache.hadoop.mapred.JobConf;
@@ -123,6 +123,7 @@ public class HadoopOutputFormat<K extends Writable,V extends Writable> implement
 		this.fileOutputCommitter.setupJob(jobContext);
 		
 		this.recordWriter = this.mapredOutputFormat.getRecordWriter(null, this.jobConf, Integer.toString(taskNumber + 1), new HadoopDummyProgressable());
+
 	}
 	
 	@Override
@@ -136,7 +137,7 @@ public class HadoopOutputFormat<K extends Writable,V extends Writable> implement
 	 */
 	@Override
 	public void close() throws IOException {
-		this.recordWriter.close(new HadoopDummyReporter());
+		this.recordWriter.close(new HadoopReporter());
 		
 		if (this.fileOutputCommitter.needsTaskCommit(this.context)) {
 			this.fileOutputCommitter.commitTask(this.context);

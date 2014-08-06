@@ -29,7 +29,7 @@ import org.apache.flink.hadoopcompatibility.mapred.record.datatypes.HadoopFileOu
 import org.apache.flink.hadoopcompatibility.mapred.record.datatypes.FlinkTypeConverter;
 import org.apache.flink.hadoopcompatibility.mapred.utils.HadoopUtils;
 import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopDummyProgressable;
-import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopDummyReporter;
+import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopReporter;
 import org.apache.flink.types.Record;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordWriter;
@@ -100,7 +100,7 @@ public class HadoopRecordOutputFormat<K,V> implements OutputFormat<Record> {
 	 */
 	@Override
 	public void close() throws IOException {
-		this.recordWriter.close(new HadoopDummyReporter());
+		this.recordWriter.close(new HadoopReporter(null));
 		if (this.fileOutputCommitterWrapper.needsTaskCommit(this.jobConf, TaskAttemptID.forName(this.jobConf.get("mapred.task.id")))) {
 			this.fileOutputCommitterWrapper.commitTask(this.jobConf, TaskAttemptID.forName(this.jobConf.get("mapred.task.id")));
 		}
