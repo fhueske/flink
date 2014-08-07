@@ -470,6 +470,10 @@ public class PlanJSONDumpGenerator {
 			case CO_GROUP:
 				locString = "Co-Group";
 				break;
+				
+			case CUSTOM_SORT_GROUP_REDUCE:
+				locString = "Hadoop-Reduce";
+				break;
 
 			default:
 				throw new CompilerException("Unknown local strategy '" + p.getDriverStrategy().name()

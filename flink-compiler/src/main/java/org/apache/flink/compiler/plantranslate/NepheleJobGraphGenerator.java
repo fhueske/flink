@@ -35,7 +35,10 @@ import org.apache.flink.api.common.aggregators.LongSumAggregator;
 import org.apache.flink.api.common.cache.DistributedCache;
 import org.apache.flink.api.common.cache.DistributedCache.DistributedCacheEntry;
 import org.apache.flink.api.common.distributions.DataDistribution;
+import org.apache.flink.api.common.typeutils.TypeComparatorFactory;
 import org.apache.flink.api.common.typeutils.TypeSerializerFactory;
+import org.apache.flink.api.java.functions.RichCustomSortGroupReduceFunction;
+import org.apache.flink.api.java.operators.CustomSortGroupReduceOperator.TupleUnwrappingNonCombinableCustomSortGroupReducer;
 import org.apache.flink.compiler.CompilerException;
 import org.apache.flink.compiler.dag.TempMode;
 import org.apache.flink.compiler.plan.BulkIterationPlanNode;
@@ -772,6 +775,16 @@ public class NepheleJobGraphGenerator implements Visitor<PlanNode> {
 		config.setDriverStrategy(ds);
 		if (node.getComparator() != null) {
 			config.setDriverComparator(node.getComparator(), 0);
+		}
+		
+		if (node.getDriverStrategy() == DriverStrategy.CUSTOM_SORT_GROUP_REDUCE) {
+			
+			RichCustomSortGroupReduceFunction<?,?> hdf = ((TupleUnwrappingNonCombinableCustomSortGroupReducer<?,?>)node.getPactContract().getUserCodeWrapper().getUserCodeObject()).getCustomSortGroupReduceUDF();
+			TypeComparatorFactory<?> sortCompFactory = hdf.getCustomSortComparatorFactory();
+			TypeComparatorFactory<?> groupCompFactory = hdf.getCustomGroupingComparatorFactory();
+			
+			config.setDriverComparator(sortCompFactory, 0);
+			config.setDriverComparator(groupCompFactory, 1);
 		}
 		
 		// assign memory, file-handles, etc.
