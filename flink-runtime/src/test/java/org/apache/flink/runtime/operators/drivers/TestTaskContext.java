@@ -57,7 +57,9 @@ public class TestTaskContext<S, T> implements PactTaskContext<S, T> {
 	
 	private Collector<T> outputCollector;
 	
-	private MemoryManager memoryManager;
+	private MemoryManager memoryManager = null;
+	
+	private IOManager ioManager = null;
 
 	// --------------------------------------------------------------------------------------------
 	//  Constructors
@@ -66,7 +68,14 @@ public class TestTaskContext<S, T> implements PactTaskContext<S, T> {
 	public TestTaskContext() {}
 	
 	public TestTaskContext(long memoryInBytes) {
+		this(memoryInBytes, false);
+	}
+	
+	public TestTaskContext(long memoryInBytes, boolean initIOManager) {
 		this.memoryManager = new DefaultMemoryManager(memoryInBytes,1 ,32 * 1024);
+		if (initIOManager) {
+			this.ioManager = new IOManager(System.getProperty("java.io.tmpdir"));
+		}
 	}
 	
 	// --------------------------------------------------------------------------------------------
@@ -140,7 +149,7 @@ public class TestTaskContext<S, T> implements PactTaskContext<S, T> {
 
 	@Override
 	public IOManager getIOManager() {
-		return null;
+		return this.ioManager;
 	}
 
 	@Override

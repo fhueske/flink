@@ -39,7 +39,7 @@ public class HadoopDriverDifferentReducerTypeITCase extends JavaProgramTestBase{
 		final String[] hashcodeCounts = new String[counts.length];
 		for (int i=0; i < counts.length; i++) {
 			final String[] curKeyValue = counts[i].split(" ");
-			hashcodeCounts[i] = curKeyValue[0].hashCode() + " " + curKeyValue[1];
+			hashcodeCounts[i] = curKeyValue[1]+" "+curKeyValue[0];
 		}
 		compareResultsByLinesInMemory(StringUtils.join(hashcodeCounts, "\n"), resultPath + "/1");
 	}

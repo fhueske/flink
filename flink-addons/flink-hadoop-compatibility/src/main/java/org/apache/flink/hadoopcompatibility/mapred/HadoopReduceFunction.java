@@ -18,13 +18,22 @@
 
 package org.apache.flink.hadoopcompatibility.mapred;
 
-import org.apache.flink.api.java.functions.GroupReduceFunction;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.Comparator;
+import java.util.Iterator;
+
+import org.apache.flink.api.common.typeutils.TypeComparatorFactory;
+import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.operators.translation.TupleUnwrappingIterator;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.api.java.typeutils.TupleTypeInfo;
 import org.apache.flink.api.java.typeutils.WritableTypeInfo;
 import org.apache.flink.hadoopcompatibility.mapred.utils.HadoopConfiguration;
+import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopComparatorWrapper.HadoopComparatorFactory;
 import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopDummyReporter;
 import org.apache.flink.hadoopcompatibility.mapred.wrapper.HadoopOutputCollector;
 import org.apache.flink.types.TypeInformation;
@@ -35,22 +44,16 @@ import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.OutputCollector;
+import org.apache.hadoop.mapred.Partitioner;
 import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
-
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
-import java.util.Iterator;
 
 /**
  * The wrapper for a Hadoop Reducer (mapred API). Parses a Hadoop JobConf object and initialises all operations related
  * reducers and combiners.
  */
-public final class HadoopReduceFunction<KEYIN extends WritableComparable, VALUEIN extends Writable,
-		KEYOUT extends WritableComparable, VALUEOUT extends Writable> extends GroupReduceFunction<Tuple2<KEYIN,VALUEIN>,
-		Tuple2<KEYOUT,VALUEOUT>> implements Serializable, ResultTypeQueryable<Tuple2<KEYOUT,VALUEOUT>> {
+public final class HadoopReduceFunction<KEYIN extends WritableComparable<?>, VALUEIN extends Writable,	KEYOUT extends WritableComparable<?>, VALUEOUT extends Writable> 
+	extends org.apache.flink.api.java.functions.RichCustomSortGroupReduceFunction<Tuple2<KEYIN,VALUEIN>,Tuple2<KEYOUT,VALUEOUT>> implements Serializable, ResultTypeQueryable<Tuple2<KEYOUT,VALUEOUT>> {
 
 	private static final long serialVersionUID = 1L;
 
@@ -134,10 +137,10 @@ public final class HadoopReduceFunction<KEYIN extends WritableComparable, VALUEI
 	 * @throws Exception
 	 */
 	@Override
-	public void reduce(final Iterator<Tuple2<KEYIN,VALUEIN>> values, final Collector<Tuple2<KEYOUT,VALUEOUT>> out)
+	public void reduce(final Iterable<Tuple2<KEYIN,VALUEIN>> values, final Collector<Tuple2<KEYOUT,VALUEOUT>> out)
 			throws Exception {
 		reduceCollector.set(out);
-		iterator.set(values);
+		iterator.set(values.iterator());
 		reducer.reduce(iterator.getKey(), iterator, reduceCollector, reporter);
 	}
 
@@ -149,7 +152,7 @@ public final class HadoopReduceFunction<KEYIN extends WritableComparable, VALUEI
 	 * @throws Exception
 	 */
 	@Override
-	public void combine(final Iterator<Tuple2<KEYIN,VALUEIN>> values, final Collector<Tuple2<KEYIN,VALUEIN>> out)
+	public void combine(final Iterable<Tuple2<KEYIN,VALUEIN>> values, final Collector<Tuple2<KEYIN,VALUEIN>> out)
 			throws Exception {
 		if (this.combiner == null) {
 			throw new RuntimeException("No combiner has been specified in Hadoop job. Flink reduce function is" +
@@ -157,7 +160,7 @@ public final class HadoopReduceFunction<KEYIN extends WritableComparable, VALUEI
 		}
 		else {
 			combineCollector.set(out);
-			iterator.set(values);
+			iterator.set(values.iterator());
 			combiner.reduce(iterator.getKey(), iterator, combineCollector, reporter);
 		}
 	}
@@ -217,4 +220,47 @@ public final class HadoopReduceFunction<KEYIN extends WritableComparable, VALUEI
 				Reporter.class));
 
 	}
+
+	@Override
+	@SuppressWarnings("unchecked")
+	public <V> KeySelector<Tuple2<KEYIN, VALUEIN>, Integer> getCustomPartitionKeySelector() {
+		final Class<Partitioner<KEYIN, VALUEIN>> partitionerClass = (Class<Partitioner<KEYIN, VALUEIN>>)jobConf.getPartitionerClass();
+		return new HadoopKeySelector<KEYIN, VALUEIN>(partitionerClass);
+	}
+
+	@Override
+	@SuppressWarnings("unchecked")
+	public TypeComparatorFactory<Tuple2<Integer,Tuple2<KEYIN, VALUEIN>>> getCustomSortComparatorFactory() {
+		Comparator<KEYIN> comp = (Comparator<KEYIN>)jobConf.getOutputKeyComparator();
+		return new HadoopComparatorFactory<KEYIN, VALUEIN>((Class<KEYIN>)jobConf.getMapOutputKeyClass(), ((Class<Comparator<KEYIN>>)comp.getClass()));
+	}
+
+	@Override
+	@SuppressWarnings("unchecked")
+	public TypeComparatorFactory<Tuple2<Integer,Tuple2<KEYIN, VALUEIN>>> getCustomGroupingComparatorFactory() {
+		Comparator<KEYIN> comp = (Comparator<KEYIN>)jobConf.getOutputValueGroupingComparator();
+		return new HadoopComparatorFactory<KEYIN, VALUEIN>((Class<KEYIN>)jobConf.getMapOutputKeyClass(), ((Class<Comparator<KEYIN>>)comp.getClass()));
+	}
+	
+	public static class HadoopKeySelector<K, V> implements KeySelector<Tuple2<K,V>, Integer> {
+		private static final long serialVersionUID = 1L;
+		private transient Partitioner<K,V> partitioner;
+		private Class<Partitioner<K,V>> partitionerClass;
+		
+		public HadoopKeySelector(Class<Partitioner<K,V>> partitionerClass) {
+			this.partitionerClass = partitionerClass;
+			this.partitioner = InstantiationUtil.instantiate(partitionerClass);
+		}
+
+		@Override
+		public Integer getKey(Tuple2<K, V> value) {
+			
+			if(this.partitioner == null) {
+				this.partitioner = InstantiationUtil.instantiate(partitionerClass);
+			}
+			
+			return partitioner.getPartition(value.f0, value.f1, Integer.MAX_VALUE);
+		}
+	}
+	
 }

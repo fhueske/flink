@@ -18,7 +18,12 @@
 
 package org.apache.flink.hadoopcompatibility.mapred;
 
-import org.apache.flink.api.java.functions.FlatMapFunction;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+
+import org.apache.flink.api.java.functions.RichFlatMapFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.api.java.typeutils.TupleTypeInfo;
@@ -36,17 +41,12 @@ import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
-
 /**
  * The wrapper for a Hadoop Mapper (mapred API). Parses a Hadoop JobConf object and initialises all operations related
  * mappers.
  */
 public final class HadoopMapFunction<KEYIN extends WritableComparable, VALUEIN extends Writable,
-		KEYOUT extends WritableComparable, VALUEOUT extends Writable> extends FlatMapFunction<Tuple2<KEYIN,VALUEIN>,
+		KEYOUT extends WritableComparable, VALUEOUT extends Writable> extends RichFlatMapFunction<Tuple2<KEYIN,VALUEIN>,
 		Tuple2<KEYOUT,VALUEOUT>> implements Serializable, ResultTypeQueryable<Tuple2<KEYOUT,VALUEOUT>> {
 
 	private static final long serialVersionUID = 1L;

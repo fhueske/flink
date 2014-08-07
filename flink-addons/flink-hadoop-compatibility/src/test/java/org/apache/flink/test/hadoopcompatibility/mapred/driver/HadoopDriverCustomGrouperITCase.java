@@ -18,13 +18,16 @@
 
 package org.apache.flink.test.hadoopcompatibility.mapred.driver;
 
+import java.util.Arrays;
+
 import org.apache.flink.test.hadoopcompatibility.HadoopTestBase;
 import org.apache.flink.test.testdata.WordCountData;
 
-public class HadoopDriverDifferentCombinerITCase extends HadoopTestBase {
+public class HadoopDriverCustomGrouperITCase extends HadoopTestBase {
 
-    protected String textPath;
+	protected String textPath;
 	protected String resultPath;
+
 
 	@Override
 	protected void preSubmit() throws Exception {
@@ -34,12 +37,37 @@ public class HadoopDriverDifferentCombinerITCase extends HadoopTestBase {
 
 	@Override
 	protected void postSubmit() throws Exception {
-		compareResultsByLinesInMemory(WordCountData.COUNTS, resultPath + "/1");
+
+		String[] expected = WordCountData.COUNTS.split("\n");
+		Arrays.sort(expected);
+		StringBuilder aggExpected = new StringBuilder();
+		
+		// aggregate sums of all words that begin with the same letter...
+		String first = null;
+		int sum = 0;
+		for(String s : expected) {
+			if (first == null) {
+				first = s.split(" ")[0];
+				sum = Integer.parseInt(s.split(" ")[1]);
+			} else {
+				if (first.charAt(0) == s.charAt(0)) {
+					sum += Integer.parseInt(s.split(" ")[1]);
+				} else {
+					aggExpected.append(first+" "+sum+"\n");
+					first = s.split(" ")[0];
+					sum = Integer.parseInt(s.split(" ")[1]);
+				}
+			}
+		}
+		aggExpected.append(first+" "+sum+"\n");
+
+		compareResultsByLinesInMemory(aggExpected.toString(), resultPath + "/1");
 	}
 
 	@Override
 	protected void testProgram() throws Exception {
-		HadoopWordCountVariations.WordCountDifferentCombiner.main(new String[]{textPath, resultPath});
+		HadoopWordCountVariations.WordCountCustomGrouper.main(new String[]{textPath, resultPath});
 	}
 }
+
 

@@ -18,16 +18,15 @@
 
 package org.apache.flink.hadoopcompatibility.mapred;
 
+import java.io.IOException;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.flink.api.common.io.OutputFormat;
+import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
-import org.apache.flink.api.java.functions.GroupReduceFunction;
 import org.apache.flink.api.java.functions.InvalidTypesException;
 import org.apache.flink.api.java.operators.DataSource;
-import org.apache.flink.api.java.operators.FlatMapOperator;
-import org.apache.flink.api.java.operators.ReduceGroupOperator;
-import org.apache.flink.api.java.operators.UnsortedGrouping;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.TypeExtractor;
 import org.apache.flink.configuration.ConfigConstants;
@@ -38,6 +37,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.ClusterStatus;
 import org.apache.hadoop.mapred.Counters;
 import org.apache.hadoop.mapred.InputFormat;
@@ -47,18 +47,13 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobID;
 import org.apache.hadoop.mapred.JobQueueInfo;
 import org.apache.hadoop.mapred.JobStatus;
-import org.apache.hadoop.mapred.Partitioner;
-import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.TaskAttemptID;
 import org.apache.hadoop.mapred.TaskCompletionEvent;
 import org.apache.hadoop.mapred.TaskReport;
-import org.apache.hadoop.mapred.lib.HashPartitioner;
 import org.apache.hadoop.mapreduce.security.token.delegation.DelegationTokenIdentifier;
 import org.apache.hadoop.security.token.Token;
-
-import java.io.IOException;
 
 /**
  * The user's view of a Hadoop Job executed on a Flink cluster.
@@ -122,44 +117,26 @@ public final class FlinkHadoopJobClient extends JobClient {
 		final int reduceParallelism = getReduceParallelism(hadoopJobConf);
 
 		//setting up the inputFormat for the job
-		final org.apache.flink.api.common.io.InputFormat<Tuple2<?,?>,?> inputFormat = getFlinkInputFormat(hadoopJobConf);
-		final DataSource<Tuple2<?,?>> input = environment.createInput(inputFormat);
+		final org.apache.flink.api.common.io.InputFormat<Tuple2<Writable,Writable>,?> inputFormat = getFlinkInputFormat(hadoopJobConf);
+		final DataSource<Tuple2<Writable,Writable>> input = environment.createInput(inputFormat);
 		input.setParallelism(mapParallelism);
 
-		final FlatMapOperator<Tuple2<?,?>, Tuple2<?,?>> mapped = input.flatMap(new HadoopMapFunction(hadoopJobConf));
-		mapped.setParallelism(mapParallelism);
-
-		final org.apache.hadoop.mapred.OutputFormat<?,?> hadoopOutputFormat = hadoopJobConf.getOutputFormat();
-		final OutputFormat<Tuple2<?,?>> outputFormat = new HadoopOutputFormat(hadoopOutputFormat, hadoopJobConf);
-
-		if (reduceParallelism == 0) {
-			mapped.output(outputFormat).setParallelism(mapParallelism);
+		final DataSet<Tuple2<Writable, Writable>> result = 
+				input.runOperation(new HadoopJobOperation(hadoopJobConf, mapParallelism, reduceParallelism));
+		
+		final org.apache.hadoop.mapred.OutputFormat<Writable, Writable> hadoopOutputFormat = hadoopJobConf.getOutputFormat();
+		final OutputFormat<Tuple2<Writable, Writable>> outputFormat = new HadoopOutputFormat(hadoopOutputFormat, hadoopJobConf);
+		if(reduceParallelism == 0) {
+			result.output(outputFormat).setParallelism(mapParallelism);
+		} else {
+			result.output(outputFormat).setParallelism(reduceParallelism);
 		}
-		else {
-			//Partitioning
-			final Class<? extends Partitioner> partitionerClass = hadoopJobConf.getPartitionerClass();
-			if (! partitionerClass.equals(HashPartitioner.class)) {
-				throw new UnsupportedOperationException("Custom partitioners are not supported yet.");
-			}
-			final UnsortedGrouping<?> grouping = mapped.groupBy(0);
-
-			final GroupReduceFunction reduceFunction = new HadoopReduceFunction(hadoopJobConf);
-			final ReduceGroupOperator<Tuple2<?,?>,Tuple2<?,?>> reduceOp = grouping.reduceGroup(reduceFunction);
-			final Class<? extends Reducer> combinerClass = hadoopJobConf.getCombinerClass();
-			if (combinerClass != null) {
-				reduceOp.setCombinable(true);
-			}
-
-			reduceOp.setParallelism(reduceParallelism);
-			//Wrapping the output format.
-			reduceOp.output(outputFormat).setParallelism(reduceParallelism);
-		}
-
+		
 		return new DummyFlinkRunningJob(hadoopJobConf.getJobName());
 	}
 
 	@SuppressWarnings({"unchecked", "rawtypes"})
-	private org.apache.flink.api.common.io.InputFormat<Tuple2<?,?>,?> getFlinkInputFormat(final JobConf jobConf)
+	private org.apache.flink.api.common.io.InputFormat<Tuple2<Writable,Writable>,?> getFlinkInputFormat(final JobConf jobConf)
 			throws IOException{
 		final org.apache.hadoop.mapred.InputFormat inputFormat = jobConf.getInputFormat();
 		final Class<? extends InputFormat> inputFormatClass = inputFormat.getClass();
@@ -357,10 +334,13 @@ public final class FlinkHadoopJobClient extends JobClient {
 		}
 
 		//Hadoop 2.2 methods.
+		@SuppressWarnings("unused")
 		public boolean isRetired() throws IOException { throw new UnsupportedOperationException(); }
 
+		@SuppressWarnings("unused")
 		public String getHistoryUrl() throws IOException {throw new UnsupportedOperationException(); }
 
+		@SuppressWarnings("unused")
 		public Configuration getConfiguration() { return getConf(); }
 	}
 

@@ -67,7 +67,10 @@ public enum DriverStrategy {
 	SORTED_GROUP_REDUCE(GroupReduceDriver.class, null, PIPELINED, true),
 	// partially grouping inputs (best effort resulting possibly in duplicates --> combiner)
 	SORTED_GROUP_COMBINE(GroupReduceCombineDriver.class, SynchronousChainedCombineDriver.class, MATERIALIZING, true),
-
+	
+	// sorts and groups input using custom comparators and applies a CustomSortGroupReduce function
+	CUSTOM_SORT_GROUP_REDUCE(CustomSortGroupReduceDriver.class, null, MATERIALIZING, false),
+	
 	// both inputs are merged, but materialized to the side for block-nested-loop-join among values with equal key
 	MERGE(MatchDriver.class, null, MATERIALIZING, MATERIALIZING, true),
 
