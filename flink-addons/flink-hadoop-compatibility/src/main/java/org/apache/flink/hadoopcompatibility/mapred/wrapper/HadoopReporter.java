@@ -19,52 +19,78 @@
 
 package org.apache.flink.hadoopcompatibility.mapred.wrapper;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.hadoop.mapred.Counters;
 import org.apache.hadoop.mapred.Counters.Counter;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapreduce.StatusReporter;
 
-/**
- * This is a dummy progress monitor / reporter
- *
- */
-public class HadoopDummyReporter implements Reporter {
+	/**
+	 * The reporter class of Flink.
+	*/
+	public class HadoopReporter extends StatusReporter implements Reporter {
+
+	private transient Counters counters;
+
+	private static final Log LOG = LogFactory.getLog(HadoopDummyProgressable.class);
+
+	public HadoopReporter() {}
+
+	public HadoopReporter(RuntimeContext context) {
+		init(context);
+	}
+
+	public void init(RuntimeContext context) {
+		this.counters = new FlinkHadoopCounters(context);
+	}
 
 	@Override
 	public void progress() {
+		LOG.warn("There is no need to report progress for Flink. progress() calls will be ignored.");
 	}
 
-	@Override
-	public void setStatus(String status) {
-
-	}
 
 	@Override
 	public Counter getCounter(Enum<?> name) {
-		return null;
+		return counters == null ? null : counters.findCounter(name);
 	}
 
 	@Override
 	public Counter getCounter(String group, String name) {
-		return null;
+		Counters.Counter counter = null;
+		if (counters != null) {
+			counter = counters.findCounter(group, name);
+		}
+		return counter;
 	}
 
 	@Override
 	public void incrCounter(Enum<?> key, long amount) {
-
+		if (counters != null) {
+			counters.findCounter(key).increment(amount);
+		}
 	}
 
 	@Override
 	public void incrCounter(String group, String counter, long amount) {
-
+		if (counters != null) {
+			counters.incrCounter(group, counter, amount);
+		}
 	}
 
 	@Override
 	public InputSplit getInputSplit() throws UnsupportedOperationException {
-		return null;
-	}
-	// There should be an @Override, but some CDH4 dependency does not contain this method
-	public float getProgress() {
-		return 0;
+		throw new UnsupportedOperationException();
 	}
 
+	// There should be an @Override, but some CDH4 dependency does not contain this method
+	public float getProgress() {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public void setStatus(String status) {}
 }

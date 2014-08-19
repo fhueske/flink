@@ -16,24 +16,31 @@
  * limitations under the License.
  */
 
+package org.apache.flink.test.hadoopcompatibility.mapred.driver;
 
-package org.apache.flink.hadoopcompatibility.mapred.wrapper;
+import org.apache.flink.test.hadoopcompatibility.HadoopTestBase;
+import org.apache.flink.test.testdata.WordCountData;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.util.Progressable;
+public class HadoopDriverInputFormatITCase extends HadoopTestBase {
 
-/**
- * This is the progressable for Flink. Flink does not kill a task if ti fails to report progress for a period of time.
- * Therefore, this function call is obsolete.
- *
- */
-public class HadoopDummyProgressable implements Progressable {
+	protected String textPath;
+	protected String resultPath;
 
-	private static final Log LOG = LogFactory.getLog(HadoopDummyProgressable.class);
 
 	@Override
-	public void progress() {
-		LOG.warn("There is no need to report progress for Flink. progress() calls will be ignored.");
+	protected void preSubmit() throws Exception {
+		textPath = createTempFile("text.txt", WordCountData.TEXT);
+		resultPath = getTempDirPath("result");
+	}
+
+	@Override
+	protected void postSubmit() throws Exception {
+		compareResultsByLinesInMemory(WordCountData.COUNTS, resultPath + "/1");
+	}
+
+	@Override
+	protected void testProgram() throws Exception {
+		HadoopWordCountVariations.NonGenericInputFormat.main(new String[]{textPath, resultPath});
 	}
 }
+

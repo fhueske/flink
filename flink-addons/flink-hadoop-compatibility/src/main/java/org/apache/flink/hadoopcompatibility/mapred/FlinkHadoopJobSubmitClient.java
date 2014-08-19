@@ -16,24 +16,30 @@
  * limitations under the License.
  */
 
+package org.apache.flink.hadoopcompatibility.mapred;
 
-package org.apache.flink.hadoopcompatibility.mapred.wrapper;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.util.Progressable;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.JobID;
+import org.apache.hadoop.mapred.JobStatus;
+import org.apache.hadoop.mapred.LocalJobRunner;
+import org.apache.hadoop.security.Credentials;
+
+import java.io.IOException;
 
 /**
- * This is the progressable for Flink. Flink does not kill a task if ti fails to report progress for a period of time.
- * Therefore, this function call is obsolete.
- *
+ * An extension of hadoop's local job runner. Mostly to emphasize that submitJob() is not supported and should not be
+ * used.
  */
-public class HadoopDummyProgressable implements Progressable {
+public class FlinkHadoopJobSubmitClient extends LocalJobRunner {
 
-	private static final Log LOG = LogFactory.getLog(HadoopDummyProgressable.class);
+	public FlinkHadoopJobSubmitClient(final JobConf conf) throws IOException {
+		super(conf);
+	}
 
 	@Override
-	public void progress() {
-		LOG.warn("There is no need to report progress for Flink. progress() calls will be ignored.");
+	public JobStatus submitJob(final JobID jobid, final String jobSubmitDir, final Credentials credentials)
+			throws IOException {
+		throw new UnsupportedOperationException();
 	}
 }

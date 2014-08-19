@@ -313,7 +313,7 @@ public abstract class DataSet<T> {
 		}
 		return new ReduceOperator<T>(this, reducer);
 	}
-	
+		
 	/**
 	 * Applies a GroupReduce transformation on a non-grouped {@link DataSet}.<br/>
 	 * The transformation calls a {@link org.apache.flink.api.java.functions.RichGroupReduceFunction} once with the full DataSet.
