@@ -39,3 +39,4 @@ or pull request that updates these documents as well.*
 - [RPC and JobManager Communication](rpc_transfer.html)
 -->
 
+- [Structure of Flink's Hadoop compatibility layer](internal_hadoop_compatibility.html)
