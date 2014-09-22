@@ -20,11 +20,14 @@ package org.apache.flink.hadoopcompatibility.mapred;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.operators.CustomSortGroupReduceOperator;
 import org.apache.flink.api.java.operators.CustomUnaryOperation;
 import org.apache.flink.api.java.operators.FlatMapOperator;
-import org.apache.flink.api.java.operators.CustomSortGroupReduceOperator;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.typeutils.TypeExtractor;
+import org.apache.flink.types.TypeInformation;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 
@@ -41,6 +44,10 @@ public class HadoopJobOperation implements CustomUnaryOperation<Tuple2<Writable,
 		this.hadoopJobConf = hadoopJobConf;
 		this.mapParallelism = mapDOP;
 		this.reduceParallelism = reduceDOP;
+		
+		// TODO add an option to create an optimized plan that can uses default operators if not 
+		//   custom comparators, sorters, and key-extractors are used!
+		//   This will allow to use hash-based combiners and reducers once available
 	}
 	
 	@Override
@@ -53,8 +60,10 @@ public class HadoopJobOperation implements CustomUnaryOperation<Tuple2<Writable,
 	public DataSet<Tuple2<Writable, Writable>> createResult() {
 
 		// apply Hadoop map function
+		final FlatMapFunction hadoopMapFunction = new HadoopMapFunction(hadoopJobConf);
+		final TypeInformation<Tuple2<Writable,Writable>> mapResultType = TypeExtractor.getFlatMapReturnTypes(hadoopMapFunction, input.getType());
 		final FlatMapOperator<Tuple2<Writable,Writable>, Tuple2<Writable,Writable>> mapped = 
-				new FlatMapOperator<Tuple2<Writable,Writable>, Tuple2<Writable,Writable>>(input, new HadoopMapFunction(hadoopJobConf));
+				new FlatMapOperator<Tuple2<Writable,Writable>, Tuple2<Writable,Writable>>(input, mapResultType, hadoopMapFunction);
 		mapped.setParallelism(mapParallelism);
 		mapped.name("Hadoop Mapper");
 		
@@ -66,6 +75,9 @@ public class HadoopJobOperation implements CustomUnaryOperation<Tuple2<Writable,
 			if(hadoopJobConf.getCombinerClass() != null) {
 				LOG.warn("Combine is not yet supported.");
 			}
+			
+			// use MapPartition for combiner and reducer (check chaining)
+			// use repartition 
 			
 			// apply Hadoop reduce function
 			final CustomSortGroupReduceOperator<Tuple2<Writable, Writable>, Tuple2<Writable,Writable>> reduced = 

@@ -49,6 +49,12 @@ public class HadoopComparatorWrapper<K extends WritableComparable<?>, V extends 
 	
 	private transient K tempReference;
 	
+	private transient final Object[] extractedKey = new Object[1];
+	
+	@SuppressWarnings("unchecked")
+	private transient final TypeComparator<Tuple2<Integer, Tuple2<K, V>>>[] comparators = 
+			(TypeComparator<Tuple2<Integer, Tuple2<K, V>>>[]) new TypeComparator[] {this};
+	
 	private transient Kryo kryo;
 
 	public HadoopComparatorWrapper() { }
@@ -58,6 +64,17 @@ public class HadoopComparatorWrapper<K extends WritableComparable<?>, V extends 
 		this.type = type;
 		
 		this.writableComparator = InstantiationUtil.instantiate(comparatorType); 
+	}
+	
+	@Override
+	public Object[] extractKeys(Tuple2<Integer, Tuple2<K, V>> record) {
+		extractedKey[0] = record;
+		return extractedKey;
+	}
+
+	@Override
+	public TypeComparator<Tuple2<Integer, Tuple2<K, V>>>[] getComparators() {
+		return comparators;
 	}
 	
 	@Override
@@ -76,6 +93,7 @@ public class HadoopComparatorWrapper<K extends WritableComparable<?>, V extends 
 		return writableComparator.compare(candidate.f1.f0, reference) == 0;
 	}
 	
+	@SuppressWarnings("unchecked")
 	@Override
 	public int compareToReference(TypeComparator<Tuple2<Integer,Tuple2<K,V>>> referencedComparator) throws ClassCastException {
 		final K otherRef = ((HadoopComparatorWrapper<K,V>) referencedComparator).reference;
@@ -88,7 +106,7 @@ public class HadoopComparatorWrapper<K extends WritableComparable<?>, V extends 
 	}
 	
 	@Override
-	public int compare(DataInputView firstSource, DataInputView secondSource) throws IOException, ClassCastException {
+	public int compareSerialized(DataInputView firstSource, DataInputView secondSource) throws IOException {
 		ensureReferenceInstantiated();
 		ensureTempReferenceInstantiated();
 		
