@@ -221,6 +221,12 @@ public class LocalExecutor implements Executor {
 	}
 
 	@Override
+	public void executeInsert(SessionContext session, String query) throws SqlExecutionException {
+		final ExecutionContext<?> context = getOrCreateExecutionContext(session);
+		executeInsertInternal(context, query);
+	}
+
+	@Override
 	public ResultDescriptor executeQuery(SessionContext session, String query) throws SqlExecutionException {
 		final ExecutionContext<?> context = getOrCreateExecutionContext(session);
 		return executeQueryInternal(context, query);
@@ -320,6 +326,30 @@ public class LocalExecutor implements Executor {
 		} catch (Exception e) {
 			throw new SqlExecutionException("Could not locate a cluster.", e);
 		}
+	}
+
+	private <T> void executeInsertInternal(ExecutionContext<T> context, String query) {
+		final ExecutionContext.EnvironmentInstance envInst = context.createEnvironmentInstance();
+
+		try {
+			envInst.getTableEnvironment()
+				.sqlUpdate(query);
+		} catch (Throwable t) {
+			// catch everything such that the query does not crash the executor
+			throw new SqlExecutionException("Invalid SQL statement.", t);
+		}
+
+		// create job graph with dependencies
+		final String jobName = context.getSessionContext().getName() + ": " + query;
+		final JobGraph jobGraph;
+		try {
+			jobGraph = envInst.createJobGraph(jobName);
+		} catch (Throwable t) {
+			// catch everything such that the query does not crash the executor
+			throw new SqlExecutionException("Invalid SQL statement.", t);
+		}
+
+		deployJobDetached(context, jobGraph);
 	}
 
 	private <T> ResultDescriptor executeQueryInternal(ExecutionContext<T> context, String query) {
@@ -438,6 +468,39 @@ public class LocalExecutor implements Executor {
 				} catch (Exception e) {
 					// ignore
 				}
+			}
+		} catch (SqlExecutionException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new SqlExecutionException("Could not locate a cluster.", e);
+		}
+	}
+
+	private <T> void deployJobDetached(ExecutionContext<T> context, JobGraph jobGraph) {
+		// create or retrieve cluster and deploy job
+		try (final ClusterDescriptor<T> clusterDescriptor = context.createClusterDescriptor()) {
+			ClusterClient<T> clusterClient = null;
+			try {
+				// new cluster
+				if (context.getClusterId() == null) {
+					// deploy job cluster with job attached
+					clusterClient = clusterDescriptor.deployJobCluster(context.getClusterSpec(), jobGraph, true);
+					// we need to hard cast for now
+					((RestClusterClient<T>) clusterClient)
+						.requestJobResult(jobGraph.getJobID())
+						.get()
+						.toJobExecutionResult(context.getClassLoader()); // throws exception if job fails
+				}
+				// reuse existing cluster
+				else {
+					// retrieve existing cluster
+					clusterClient = clusterDescriptor.retrieve(context.getClusterId());
+					// submit the job
+					clusterClient.setDetached(true);
+					clusterClient.submitJob(jobGraph, context.getClassLoader()); // throws exception if job fails
+				}
+			} catch (Exception e) {
+				throw new SqlExecutionException("Could not retrieve or create a cluster.", e);
 			}
 		} catch (SqlExecutionException e) {
 			throw e;

@@ -207,6 +207,9 @@ public class CliClient {
 				case EXPLAIN:
 					callExplain(cmdCall);
 					break;
+				case INSERT:
+					callInsert(cmdCall);
+					break;
 				case SELECT:
 					callSelect(cmdCall);
 					break;
@@ -305,6 +308,17 @@ public class CliClient {
 			return;
 		}
 		terminal.writer().println(explanation);
+		terminal.flush();
+	}
+
+	private void callInsert(SqlCommandCall cmdCall) {
+		try {
+			executor.executeInsert(context, cmdCall.operands[0]);
+		} catch (SqlExecutionException e) {
+			printException(e);
+			return;
+		}
+		terminal.writer().println("Query is running...");
 		terminal.flush();
 	}
 

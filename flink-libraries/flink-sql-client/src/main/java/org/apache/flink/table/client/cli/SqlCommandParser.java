@@ -70,6 +70,8 @@ public final class SqlCommandParser {
 				}
 			case SELECT:
 				return new String[] {originalCall};
+			case INSERT:
+				return new String[] {originalCall};
 			default:
 				return new String[] {operands};
 		}
@@ -89,6 +91,7 @@ public final class SqlCommandParser {
 		DESCRIBE("describe"),
 		EXPLAIN("explain"),
 		SELECT("select"),
+		INSERT("insert"),
 		SET("set"),
 		RESET("reset"),
 		SOURCE("source");

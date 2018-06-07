@@ -219,10 +219,10 @@ public class ExecutionContext<T> {
 
 			try {
 				Class<?> esTableSinkClazz = Class.forName(
-					"com.dataartisans.elasticsearchsink.ElasticSearchUpsertTableSink");
+					"com.dataartisans.elasticsearchsink.ElasticSearchUpsertTableSink", true, classLoader);
 
 				TableSink<?> esTableSink = (TableSink) esTableSinkClazz
-					.getConstructor(String.class, Integer.class, String.class, String.class)
+					.getConstructor(String.class, int.class, String.class, String.class)
 					.newInstance("elasticsearch", 9300, "area-cnts", "area-cnts");
 
 				tableEnv.registerTableSink(
