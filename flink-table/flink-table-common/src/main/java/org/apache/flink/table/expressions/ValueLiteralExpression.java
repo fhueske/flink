@@ -231,6 +231,11 @@ public final class ValueLiteralExpression implements ResolvedExpression {
                     // casting does not support nullability
                     dataType.getLogicalType().copy(true).asSerializableString());
         }
+        if (dataType.getLogicalType().getTypeRoot().equals(LogicalTypeRoot.SYMBOL)) {
+            if (dataType.getConversionClass().equals(TimePointUnit.class)) {
+                return ((TimePointUnit) value).toString();
+            }
+        }
         final LogicalType logicalType = dataType.getLogicalType();
         switch (logicalType.getTypeRoot()) {
             case TINYINT:

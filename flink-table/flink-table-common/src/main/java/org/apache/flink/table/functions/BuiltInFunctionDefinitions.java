@@ -849,6 +849,7 @@ public final class BuiltInFunctionDefinitions {
     public static final BuiltInFunctionDefinition CHAR_LENGTH =
             BuiltInFunctionDefinition.newBuilder()
                     .name("charLength")
+                    .sqlName("CHAR_LENGTH")
                     .kind(SCALAR)
                     .inputTypeStrategy(sequence(logical(LogicalTypeFamily.CHARACTER_STRING)))
                     .outputTypeStrategy(nullableIfArgs(explicit(INT())))
@@ -1914,6 +1915,7 @@ public final class BuiltInFunctionDefinitions {
     public static final BuiltInFunctionDefinition DATE_FORMAT =
             BuiltInFunctionDefinition.newBuilder()
                     .name("dateFormat")
+                    .sqlName("DATE_FORMAT")
                     .kind(SCALAR)
                     .inputTypeStrategy(
                             or(
@@ -1949,6 +1951,7 @@ public final class BuiltInFunctionDefinitions {
     public static final BuiltInFunctionDefinition CONVERT_TZ =
             BuiltInFunctionDefinition.newBuilder()
                     .name("convertTz")
+                    .sqlName("CONVERT_TZ")
                     .kind(SCALAR)
                     .inputTypeStrategy(
                             sequence(
@@ -1961,6 +1964,7 @@ public final class BuiltInFunctionDefinitions {
     public static final BuiltInFunctionDefinition FROM_UNIXTIME =
             BuiltInFunctionDefinition.newBuilder()
                     .name("fromUnixtime")
+                    .sqlName("FROM_UNIXTIME")
                     .kind(SCALAR)
                     .inputTypeStrategy(
                             or(
@@ -1974,6 +1978,7 @@ public final class BuiltInFunctionDefinitions {
     public static final BuiltInFunctionDefinition UNIX_TIMESTAMP =
             BuiltInFunctionDefinition.newBuilder()
                     .name("unixTimestamp")
+                    .sqlName("UNIX_TIMESTAMP")
                     .kind(SCALAR)
                     .inputTypeStrategy(
                             or(
@@ -1988,6 +1993,7 @@ public final class BuiltInFunctionDefinitions {
     public static final BuiltInFunctionDefinition TO_DATE =
             BuiltInFunctionDefinition.newBuilder()
                     .name("toDate")
+                    .sqlName("TO_DATE")
                     .kind(SCALAR)
                     .inputTypeStrategy(
                             or(
@@ -2001,6 +2007,7 @@ public final class BuiltInFunctionDefinitions {
     public static final BuiltInFunctionDefinition TO_TIMESTAMP_LTZ =
             BuiltInFunctionDefinition.newBuilder()
                     .name("toTimestampLtz")
+                    .sqlName("TO_TIMESTAMP_LTZ")
                     .kind(SCALAR)
                     .inputTypeStrategy(
                             sequence(
@@ -2012,6 +2019,7 @@ public final class BuiltInFunctionDefinitions {
     public static final BuiltInFunctionDefinition TO_TIMESTAMP =
             BuiltInFunctionDefinition.newBuilder()
                     .name("toTimestamp")
+                    .sqlName("TO_TIMESTAMP")
                     .kind(SCALAR)
                     .inputTypeStrategy(
                             or(
