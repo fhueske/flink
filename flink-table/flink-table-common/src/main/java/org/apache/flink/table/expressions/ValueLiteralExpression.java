@@ -233,7 +233,7 @@ public final class ValueLiteralExpression implements ResolvedExpression {
         }
         if (dataType.getLogicalType().getTypeRoot().equals(LogicalTypeRoot.SYMBOL)) {
             if (dataType.getConversionClass().equals(TimePointUnit.class)) {
-                return ((TimePointUnit) value).toString();
+                return value.toString();
             }
         }
         final LogicalType logicalType = dataType.getLogicalType();
