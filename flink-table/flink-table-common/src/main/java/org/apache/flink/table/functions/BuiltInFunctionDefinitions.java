@@ -1876,6 +1876,7 @@ public final class BuiltInFunctionDefinitions {
     public static final BuiltInFunctionDefinition CURRENT_DATE =
             BuiltInFunctionDefinition.newBuilder()
                     .name("currentDate")
+                    .callSyntax("CURRENT_DATE", (sqlName, operands) -> "CURRENT_DATE")
                     .sqlName("CURRENT_DATE")
                     .kind(SCALAR)
                     .outputTypeStrategy(explicit(DATE().notNull()))
@@ -1884,7 +1885,7 @@ public final class BuiltInFunctionDefinitions {
     public static final BuiltInFunctionDefinition CURRENT_TIME =
             BuiltInFunctionDefinition.newBuilder()
                     .name("currentTime")
-                    .sqlName("CURRENT_TIME")
+                    .callSyntax("CURRENT_TIME", (sqlName, operands) -> "CURRENT_TIME")
                     .kind(SCALAR)
                     .outputTypeStrategy(explicit(TIME().notNull()))
                     .build();
@@ -1899,7 +1900,7 @@ public final class BuiltInFunctionDefinitions {
     public static final BuiltInFunctionDefinition CURRENT_TIMESTAMP =
             BuiltInFunctionDefinition.newBuilder()
                     .name("currentTimestamp")
-                    .sqlName("CURRENT_TIMESTAMP")
+                    .callSyntax("CURRENT_TIMESTAMP", (sqlName, operands) -> "CURRENT_TIMESTAMP")
                     .kind(SCALAR)
                     .outputTypeStrategy(explicit(TIMESTAMP_LTZ(3).notNull()))
                     .build();
