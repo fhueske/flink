@@ -27,6 +27,7 @@ import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalTableFuncti
 import org.apache.flink.table.planner.plan.nodes.physical.stream.StreamPhysicalProcessTableFunction;
 import org.apache.flink.table.planner.plan.rules.physical.common.PhysicalMLPredictTableFunctionRule;
 import org.apache.flink.table.planner.plan.trait.FlinkRelDistribution;
+import org.apache.flink.table.planner.plan.utils.LateralSnapshotJoinUtil;
 import org.apache.flink.table.planner.utils.ShortcutUtils;
 
 import org.apache.calcite.linq4j.Ord;
@@ -73,6 +74,7 @@ public class StreamPhysicalProcessTableFunctionRule extends ConverterRule {
         final FunctionDefinition definition = ShortcutUtils.unwrapFunctionDefinition(rexCall);
         return definition != null
                 && !PhysicalMLPredictTableFunctionRule.isMLPredictFunction(definition)
+                && !LateralSnapshotJoinUtil.isSnapshotFunction(definition)
                 && definition.getKind() == FunctionKind.PROCESS_TABLE;
     }
 

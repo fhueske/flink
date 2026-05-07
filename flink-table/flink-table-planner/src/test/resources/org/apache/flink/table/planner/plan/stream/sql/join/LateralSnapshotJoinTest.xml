@@ -1,0 +1,140 @@
+<?xml version="1.0" ?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to you under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<Root>
+  <TestCase name="testInnerJoin">
+    <Resource name="sql">
+      <![CDATA[SELECT * FROM probe JOIN LATERAL SNAPSHOT(input => TABLE b, load_completed_condition => 'on_time', load_completed_time => TIMESTAMP '2026-07-01 00:00:00') AS s ON probe.k = s.k]]>
+    </Resource>
+    <Resource name="ast">
+      <![CDATA[
+LogicalProject(k=[$0], v=[$1], ts=[$2], k0=[$3], v0=[$4], ts0=[$5])
++- LogicalJoin(condition=[=($0, $3)], joinType=[inner])
+   :- LogicalWatermarkAssigner(rowtime=[ts], watermark=[$2])
+   :  +- LogicalTableScan(table=[[default_catalog, default_database, probe]])
+   +- LogicalTableFunctionScan(invocation=[SNAPSHOT(TABLE(#0), _UTF-16LE'on_time', 2026-07-01 00:00:00, DEFAULT(), DEFAULT(), DEFAULT(), DEFAULT())], rowType=[RecordType(VARCHAR(2147483647) k, INTEGER v, TIMESTAMP(3) *ROWTIME* ts)])
+      +- LogicalProject(k=[$0], v=[$1], ts=[$2])
+         +- LogicalWatermarkAssigner(rowtime=[ts], watermark=[$2])
+            +- LogicalTableScan(table=[[default_catalog, default_database, b]])
+]]>
+    </Resource>
+    <Resource name="optimized rel plan">
+      <![CDATA[
+LateralSnapshotJoin(joinType=[InnerJoin], where=[AND(=(k, k0), __LATERAL_SNAPSHOT_JOIN_CONDITION(1782864000000, null:BIGINT, null:BIGINT))], select=[k, v, ts, k0, v0, ts0])
+:- Exchange(distribution=[hash[k]])
+:  +- Calc(select=[k, v, CAST(ts AS TIMESTAMP(3)) AS ts])
+:     +- WatermarkAssigner(rowtime=[ts], watermark=[ts])
+:        +- TableSourceScan(table=[[default_catalog, default_database, probe]], fields=[k, v, ts])
++- Exchange(distribution=[hash[k]])
+   +- Calc(select=[k, v, CAST(ts AS TIMESTAMP(3)) AS ts])
+      +- WatermarkAssigner(rowtime=[ts], watermark=[ts])
+         +- TableSourceScan(table=[[default_catalog, default_database, b]], fields=[k, v, ts])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testInnerJoinWithCteBuildSide">
+    <Resource name="sql">
+      <![CDATA[WITH cte AS (SELECT k, v + 1 AS v, ts FROM b) SELECT * FROM probe JOIN LATERAL SNAPSHOT(input => TABLE cte, load_completed_condition => 'on_time', load_completed_time => TIMESTAMP '2026-07-01 00:00:00') AS s ON probe.k = s.k]]>
+    </Resource>
+    <Resource name="ast">
+      <![CDATA[
+LogicalProject(k=[$0], v=[$1], ts=[$2], k0=[$3], v0=[$4], ts0=[$5])
++- LogicalJoin(condition=[=($0, $3)], joinType=[inner])
+   :- LogicalWatermarkAssigner(rowtime=[ts], watermark=[$2])
+   :  +- LogicalTableScan(table=[[default_catalog, default_database, probe]])
+   +- LogicalTableFunctionScan(invocation=[SNAPSHOT(TABLE(#0), _UTF-16LE'on_time', 2026-07-01 00:00:00, DEFAULT(), DEFAULT(), DEFAULT(), DEFAULT())], rowType=[RecordType(VARCHAR(2147483647) k, INTEGER v, TIMESTAMP(3) *ROWTIME* ts)])
+      +- LogicalProject(k=[$0], v=[$1], ts=[$2])
+         +- LogicalProject(k=[$0], v=[+($1, 1)], ts=[$2])
+            +- LogicalWatermarkAssigner(rowtime=[ts], watermark=[$2])
+               +- LogicalTableScan(table=[[default_catalog, default_database, b]])
+]]>
+    </Resource>
+    <Resource name="optimized rel plan">
+      <![CDATA[
+LateralSnapshotJoin(joinType=[InnerJoin], where=[AND(=(k, k0), __LATERAL_SNAPSHOT_JOIN_CONDITION(1782864000000, null:BIGINT, null:BIGINT))], select=[k, v, ts, k0, v0, ts0])
+:- Exchange(distribution=[hash[k]])
+:  +- Calc(select=[k, v, CAST(ts AS TIMESTAMP(3)) AS ts])
+:     +- WatermarkAssigner(rowtime=[ts], watermark=[ts])
+:        +- TableSourceScan(table=[[default_catalog, default_database, probe]], fields=[k, v, ts])
++- Exchange(distribution=[hash[k]])
+   +- Calc(select=[k, +(v, 1) AS v, CAST(ts AS TIMESTAMP(3)) AS ts])
+      +- WatermarkAssigner(rowtime=[ts], watermark=[ts])
+         +- TableSourceScan(table=[[default_catalog, default_database, b]], fields=[k, v, ts])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testInnerJoinWithIdleTimeoutAndStateTtl">
+    <Resource name="sql">
+      <![CDATA[SELECT * FROM probe JOIN LATERAL SNAPSHOT(input => TABLE b, load_completed_condition => 'on_time', load_completed_time => TIMESTAMP '2026-07-01 00:00:00', load_completed_idle_timeout => INTERVAL '10' SECOND, state_ttl => INTERVAL '1' DAY) AS s ON probe.k = s.k]]>
+    </Resource>
+    <Resource name="ast">
+      <![CDATA[
+LogicalProject(k=[$0], v=[$1], ts=[$2], k0=[$3], v0=[$4], ts0=[$5])
++- LogicalJoin(condition=[=($0, $3)], joinType=[inner])
+   :- LogicalWatermarkAssigner(rowtime=[ts], watermark=[$2])
+   :  +- LogicalTableScan(table=[[default_catalog, default_database, probe]])
+   +- LogicalTableFunctionScan(invocation=[SNAPSHOT(TABLE(#0), _UTF-16LE'on_time', 2026-07-01 00:00:00, 10000:INTERVAL SECOND, 86400000:INTERVAL DAY, DEFAULT(), DEFAULT())], rowType=[RecordType(VARCHAR(2147483647) k, INTEGER v, TIMESTAMP(3) *ROWTIME* ts)])
+      +- LogicalProject(k=[$0], v=[$1], ts=[$2])
+         +- LogicalWatermarkAssigner(rowtime=[ts], watermark=[$2])
+            +- LogicalTableScan(table=[[default_catalog, default_database, b]])
+]]>
+    </Resource>
+    <Resource name="optimized rel plan">
+      <![CDATA[
+LateralSnapshotJoin(joinType=[InnerJoin], where=[AND(=(k, k0), __LATERAL_SNAPSHOT_JOIN_CONDITION(1782864000000, 10000, 86400000))], select=[k, v, ts, k0, v0, ts0])
+:- Exchange(distribution=[hash[k]])
+:  +- Calc(select=[k, v, CAST(ts AS TIMESTAMP(3)) AS ts])
+:     +- WatermarkAssigner(rowtime=[ts], watermark=[ts])
+:        +- TableSourceScan(table=[[default_catalog, default_database, probe]], fields=[k, v, ts])
++- Exchange(distribution=[hash[k]])
+   +- Calc(select=[k, v, CAST(ts AS TIMESTAMP(3)) AS ts])
+      +- WatermarkAssigner(rowtime=[ts], watermark=[ts])
+         +- TableSourceScan(table=[[default_catalog, default_database, b]], fields=[k, v, ts])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testLeftJoin">
+    <Resource name="sql">
+      <![CDATA[SELECT * FROM probe LEFT JOIN LATERAL SNAPSHOT(input => TABLE b, load_completed_condition => 'on_time', load_completed_time => TIMESTAMP '2026-07-01 00:00:00') AS s ON probe.k = s.k]]>
+    </Resource>
+    <Resource name="ast">
+      <![CDATA[
+LogicalProject(k=[$0], v=[$1], ts=[$2], k0=[$3], v0=[$4], ts0=[$5])
++- LogicalJoin(condition=[=($0, $3)], joinType=[left])
+   :- LogicalWatermarkAssigner(rowtime=[ts], watermark=[$2])
+   :  +- LogicalTableScan(table=[[default_catalog, default_database, probe]])
+   +- LogicalTableFunctionScan(invocation=[SNAPSHOT(TABLE(#0), _UTF-16LE'on_time', 2026-07-01 00:00:00, DEFAULT(), DEFAULT(), DEFAULT(), DEFAULT())], rowType=[RecordType(VARCHAR(2147483647) k, INTEGER v, TIMESTAMP(3) *ROWTIME* ts)])
+      +- LogicalProject(k=[$0], v=[$1], ts=[$2])
+         +- LogicalWatermarkAssigner(rowtime=[ts], watermark=[$2])
+            +- LogicalTableScan(table=[[default_catalog, default_database, b]])
+]]>
+    </Resource>
+    <Resource name="optimized rel plan">
+      <![CDATA[
+LateralSnapshotJoin(joinType=[LeftOuterJoin], where=[AND(=(k, k0), __LATERAL_SNAPSHOT_JOIN_CONDITION(1782864000000, null:BIGINT, null:BIGINT))], select=[k, v, ts, k0, v0, ts0])
+:- Exchange(distribution=[hash[k]])
+:  +- Calc(select=[k, v, CAST(ts AS TIMESTAMP(3)) AS ts])
+:     +- WatermarkAssigner(rowtime=[ts], watermark=[ts])
+:        +- TableSourceScan(table=[[default_catalog, default_database, probe]], fields=[k, v, ts])
++- Exchange(distribution=[hash[k]])
+   +- Calc(select=[k, v, CAST(ts AS TIMESTAMP(3)) AS ts])
+      +- WatermarkAssigner(rowtime=[ts], watermark=[ts])
+         +- TableSourceScan(table=[[default_catalog, default_database, b]], fields=[k, v, ts])
+]]>
+    </Resource>
+  </TestCase>
+</Root>
