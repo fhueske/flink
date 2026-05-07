@@ -382,6 +382,19 @@ class FlinkChangelogModeInferenceProgram extends FlinkOptimizeProgram[StreamOpti
         val leftTrait = children.head.getTraitSet.getTrait(ModifyKindSetTraitDef.INSTANCE)
         createNewNode(temporalJoin, children, leftTrait, requiredTrait, requester)
 
+      case lateralSnapshotJoin: StreamPhysicalLateralSnapshotJoin =>
+        // LATERAL SNAPSHOT requires append-only on the probe (left) side and supports all
+        // changelog modes on the build (right) side. Output is append-only.
+        val children = visitChildren(
+          lateralSnapshotJoin,
+          List(ModifyKindSetTrait.INSERT_ONLY, ModifyKindSetTrait.ALL_CHANGES))
+        createNewNode(
+          lateralSnapshotJoin,
+          children,
+          ModifyKindSetTrait.INSERT_ONLY,
+          requiredTrait,
+          requester)
+
       case multiJoin: StreamPhysicalMultiJoin =>
         // multi-join supports all changes in input
         val children = visitChildren(multiJoin, ModifyKindSetTrait.ALL_CHANGES)
@@ -713,6 +726,27 @@ class FlinkChangelogModeInferenceProgram extends FlinkOptimizeProgram[StreamOpti
               createNewNode(temporalJoin, Some(List(newLeft, newRight)), leftTrait)
             case _ =>
               None
+          }
+
+        case lateralSnapshotJoin: StreamPhysicalLateralSnapshotJoin =>
+          // Probe (left) is required to be append-only.
+          // The build (right) side requires BEFORE_AND_AFTER for updates: the operator's
+          // build-side state is a multi-set keyed on the full row, so an UPDATE must arrive
+          // as a -U/+U pair to retract the old row before adding the new. Accepting
+          // ONLY_UPDATE_AFTER (i.e. allowing DropUpdateBefore) would silently leak stale
+          // versions because we have no upsert-key info to retract them by.
+          val left = lateralSnapshotJoin.getLeft.asInstanceOf[StreamPhysicalRel]
+          val right = lateralSnapshotJoin.getRight.asInstanceOf[StreamPhysicalRel]
+          val newLeftOption = this.visit(left, UpdateKindTrait.NONE)
+          val rightInputModifyKindSet = getModifyKindSet(right)
+          val newRightOption = this.visit(right, beforeAfterOrNone(rightInputModifyKindSet))
+          (newLeftOption, newRightOption) match {
+            case (Some(newLeft), Some(newRight)) =>
+              createNewNode(
+                lateralSnapshotJoin,
+                Some(List(newLeft, newRight)),
+                UpdateKindTrait.NONE)
+            case _ => None
           }
 
         // if the condition is applied on the upsert key, we can emit whatever the requiredTrait
@@ -1236,13 +1270,14 @@ class FlinkChangelogModeInferenceProgram extends FlinkOptimizeProgram[StreamOpti
             _: StreamPhysicalPythonGroupTableAggregate | _: StreamPhysicalGroupWindowAggregateBase |
             _: StreamPhysicalWindowAggregate | _: StreamPhysicalSort | _: StreamPhysicalRank |
             _: StreamPhysicalSortLimit | _: StreamPhysicalTemporalJoin |
-            _: StreamPhysicalCorrelateBase | _: StreamPhysicalLookupJoin |
-            _: StreamPhysicalWatermarkAssigner | _: StreamPhysicalWindowTableFunction |
-            _: StreamPhysicalWindowRank | _: StreamPhysicalWindowDeduplicate |
-            _: StreamPhysicalTemporalSort | _: StreamPhysicalMatch |
-            _: StreamPhysicalOverAggregate | _: StreamPhysicalIntervalJoin |
-            _: StreamPhysicalPythonOverAggregate | _: StreamPhysicalWindowJoin |
-            _: StreamPhysicalMLPredictTableFunction | _: StreamPhysicalVectorSearchTableFunction =>
+            _: StreamPhysicalLateralSnapshotJoin | _: StreamPhysicalCorrelateBase |
+            _: StreamPhysicalLookupJoin | _: StreamPhysicalWatermarkAssigner |
+            _: StreamPhysicalWindowTableFunction | _: StreamPhysicalWindowRank |
+            _: StreamPhysicalWindowDeduplicate | _: StreamPhysicalTemporalSort |
+            _: StreamPhysicalMatch | _: StreamPhysicalOverAggregate |
+            _: StreamPhysicalIntervalJoin | _: StreamPhysicalPythonOverAggregate |
+            _: StreamPhysicalWindowJoin | _: StreamPhysicalMLPredictTableFunction |
+            _: StreamPhysicalVectorSearchTableFunction =>
           // if not explicitly supported, all operators require full deletes if there are updates
           val children = rel.getInputs.map {
             case child: StreamPhysicalRel =>
