@@ -32,6 +32,7 @@ import org.apache.flink.table.runtime.generated.GeneratedJoinCondition;
 import org.apache.flink.table.runtime.keyselector.RowDataKeySelector;
 import org.apache.flink.table.runtime.typeutils.InternalTypeInfo;
 import org.apache.flink.table.types.logical.BigIntType;
+import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.VarCharType;
 import org.apache.flink.table.utils.HandwrittenSelectorUtil;
 import org.apache.flink.types.RowKind;
@@ -96,8 +97,16 @@ class LateralSnapshotJoinOperatorTest {
             Long loadCompletedTime,
             Long loadCompletedIdleTimeoutMs,
             Long stateTtlMs) {
+
+        // TODO: add tests (inner + outer) with a different join condition to ensure it is actually
+        //  called
+
+        // TODO: add tests (inner + outer) with different filterNullKey behavior to ensure it is
+        //  correctly used
+
         // Filter nulls on the single equi-key by default (matches what the planner emits for
         // an inner/left equi-join).
+        // TODO: check if this is true. Is there no way to enforce a different nullKey behavior?
         return new LateralSnapshotJoinOperator(
                 isLeftOuterJoin,
                 PROBE_TYPE,
@@ -161,6 +170,8 @@ class LateralSnapshotJoinOperatorTest {
 
             assertThat(op.getPhase()).isEqualTo(LateralSnapshotJoinOperator.Phase.LOAD);
             assertThat(stripWatermarks(h.getOutput())).isEmpty();
+
+            // TODO: do some more?
         }
     }
 
